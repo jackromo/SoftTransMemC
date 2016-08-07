@@ -103,10 +103,11 @@ pthread_mutex_init(&_stm_gc_lock, NULL);
  */
 typedef struct {
     atom_t *atom;
+    void *dest;
 } read_op_t;
 
 
-read_op_t read_op_new(atom_t *atom, type_t type);
+read_op_t read_op_new(atom_t *atom, void *dest);
 bool read_op_validate(read_op_t *read_op);
 void *_read_op_read(read_op_t read_op);  // Not responsible for validation.
 
@@ -116,11 +117,11 @@ void *_read_op_read(read_op_t read_op);  // Not responsible for validation.
  */
 typedef struct {
     atom_t *atom;
-    void *value;    // Pointer to value to write to atom.
+    void *src;    // Pointer to value to write to atom.
 } write_op_t;
 
 
-write_op_t write_op_new(atom_t *atom, void *value);
+write_op_t write_op_new(atom_t *atom, void *src);
 bool write_op_validate(write_op_t *write_op);
 void write_op_write(write_op_t write_op);  // Not responsible for validation.
 
@@ -140,7 +141,7 @@ typedef struct {
 
 readset_t new_readset();
 void readset_append(readset_t readset, read_op_t read_op);
-bool readset_validate_all(readset_t readset);  // to be used just before commit
+bool readset_validate_all(readset_t readset);  // To be used just before commit.
 void readset_free_ops(readset_t readset);
 
 
@@ -176,10 +177,22 @@ typedef struct {
 
 transaction_t transaction_new(char *name);
 void transaction_add_read(transaction_t transaction, read_op_t read_op);
+int transaction_validate_last_read(transaction_t transaction);  // Returns nonzero if invalid
 void transaction_add_write(transaction_t transaction, write_op_t write_op);
+int transaction_validate_last_write(transaction_t transaction);  // Returns nonzero if invalid
 void transaction_add_malloc(transaction_t transaction, void *pnt);
-void transaction_abort(transaction_t transaction);      // Longjmp call here, to start of transaction.
-void transaction_commit(transaction_t transaction);     // May call transaction_abort.
+void transaction_abort(transaction_t transaction);
+int transaction_commit(transaction_t transaction);     // Returns nonzero if commit failed
+
+
+// Utility macro for transaction name.
+#define _Trans(TRANS_NAME) __trans_ ## TRANS_NAME  ## __
+
+// Utility macro for buffer name.
+#define _Buf(TRANS_NAME) __buf_ ## TRANS_NAME  ## __
+
+// Called by other macros to return to start of transaction.
+#define _Abort(TRANS_NAME) longjmp(_Buf(TRANS_NAME))
 
 
 /*
@@ -193,10 +206,11 @@ void transaction_commit(transaction_t transaction);     // May call transaction_
  * This macro must be called on a separate line.
  */
 #define StartTransaction(TRANS_NAME) do { \
-    transaction_t __trans_ ## TRANS_NAME ## __ = transaction_new(TRANS_NAME); \
-    jmp_buf __buf_ ## TRANS_NAME ## __; \
-    if(!setjmp(__buf_ ## TRANS_NAME ## __)) \
-        transaction_abort(__trans_ ## TRANS_NAME ## __); } while(0)
+    transaction_t _Trans(TRANS_NAME) = transaction_new(TRANS_NAME); \
+    jmp_buf _Buf(TRANS_NAME); \
+    if(!setjmp(_Buf(TRANS_NAME))) \
+        transaction_abort(_Trans(TRANS_NAME)); \
+    } while(0)
 
 
 /*
@@ -207,7 +221,9 @@ void transaction_commit(transaction_t transaction);     // May call transaction_
  * This macro must be called on a separate line.
  */
 #define EndTransaction(TRANS_NAME) do { \
-    transaction_commit(__trans_ ## TRANS_NAME ##__); } while(0)
+    if(transaction_commit(_Trans(TRANS_NAME))) \
+        _Abort(TRANS_NAME); \
+    } while(0)
 
 
 /*
@@ -216,7 +232,11 @@ void transaction_commit(transaction_t transaction);     // May call transaction_
  * Must be called on a separate line. Should be used with caution if called in a separate function,
  * as it uses a longjmp() to abort if need be.
  */
-#define ReadAtom(atom, dest)
+#define ReadAtom(atom, dest, TRANS_NAME) do { \
+    transaction_add_read(_Trans(TRANS_NAME), read_op_new(atom, dest)); \
+    if(transaction_validate_last_read(_Trans(TRANS_NAME))) \
+        _Abort(TRANS_NAME); \
+    } while(0)
 
 
 /*
@@ -225,16 +245,17 @@ void transaction_commit(transaction_t transaction);     // May call transaction_
  * Must be called on a separate line. Should be used with caution if called in a separate function,
  * as it uses a longjmp() to abort if need be.
  */
-#define WriteAtom(atom, src)
+#define WriteAtom(atom, src, TRANS_NAME) do { \
+    transaction_add_write(_Trans(TRANS_NAME), write_op_new(atom, src)); \
+    if(transaction_validate_last_write(_Trans(TRANS_NAME))) \
+        _Abort(TRANS_NAME); \
+    } while(0)
 
 
-// Called by other macros to return to start of transaction
-#define _Abort(TRANS_NAME) longjmp(__buf_ ## TRANS_NAME ## __)
-
-
+// These will simply log the memory allocations performed for cleanup at abort.
 void *stm_malloc(size_t size);
 void *stm_realloc(void *pos, size_t size);
-void stm_free(void *val);
+void stm_free(void *pos);
 
 #endif // STM_H
 

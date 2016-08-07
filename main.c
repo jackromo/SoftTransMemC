@@ -28,13 +28,13 @@ void *th_run(void *at) {
     atom_t *atom = (atom_t *) at;
     int y, *z;
     StartTransaction(trans);
-    ReadAtom(*atom, &y);
+    ReadAtom(*atom, &y, trans);
     z = stm_malloc(sizeof(int));
     if(y == 0)
         *z = 1;
     else
         *z = 2;
-    WriteAtom(*atom, z);
+    WriteAtom(*atom, z, trans);
     stm_free(z);
     EndTransaction(trans);
 }
