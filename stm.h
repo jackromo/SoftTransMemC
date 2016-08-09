@@ -95,7 +95,12 @@ int atom_get_version(atom_t atom);
  */
 extern int _stm_global_clock;
 extern pthread_mutex_t _stm_gc_lock;
-pthread_mutex_init(&_stm_gc_lock, NULL);
+
+
+// This function must be called at the start of the program.
+void stm_init() {
+    pthread_mutex_init(&_stm_gc_lock, NULL);
+}
 
 
 /*
@@ -156,7 +161,7 @@ typedef struct {
 
 writeset_t new_writeset();
 void writeset_append(writeset_t writeset, write_op_t write_op);
-void writeset_lock(writeset_t *writeset);           // To be used just before commit.
+int writeset_lock(writeset_t *writeset);           // To be used just before commit.
 void writeset_unlock(writeset_t *writeset);         // ^
 bool writeset_validate_all(writeset_t writeset);    // ^^
 void writeset_commit(writeset_t writeset);
@@ -180,7 +185,8 @@ void transaction_add_read(transaction_t transaction, read_op_t read_op);
 int transaction_validate_last_read(transaction_t transaction);  // Returns nonzero if invalid
 void transaction_add_write(transaction_t transaction, write_op_t write_op);
 int transaction_validate_last_write(transaction_t transaction);  // Returns nonzero if invalid
-void transaction_add_malloc(transaction_t transaction, void *pnt);
+void *transaction_add_malloc(transaction_t transaction, size_t size);
+void transaction_add_free(transaction_t transaction, void *pnt);
 void transaction_abort(transaction_t transaction);
 int transaction_commit(transaction_t transaction);     // Returns nonzero if commit failed
 
@@ -253,9 +259,10 @@ int transaction_commit(transaction_t transaction);     // Returns nonzero if com
 
 
 // These will simply log the memory allocations performed for cleanup at abort.
-void *stm_malloc(size_t size);
-void *stm_realloc(void *pos, size_t size);
-void stm_free(void *pos);
+
+#define stm_malloc(size, TRANS_NAME) transaction_add_malloc(_Trans(TRANS_NAME), size)
+#define stm_free(pnt, TRANS_NAME) transaction_add_free(_Trans(TRANS_NAME), pnt)
+
 
 #endif // STM_H
 
