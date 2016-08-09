@@ -29,18 +29,19 @@ void *th_run(void *at) {
     int y, *z;
     StartTransaction(trans);
     ReadAtom(*atom, &y, trans);
-    z = stm_malloc(sizeof(int));
+    z = stm_malloc(sizeof(int), trans);
     if(y == 0)
         *z = 1;
     else
         *z = 2;
     WriteAtom(*atom, z, trans);
-    stm_free(z);
+    stm_free(z, trans);
     EndTransaction(trans);
 }
 
 
 int main() {
+    stm_init();
     int y = 0;
     atom_t atom = atomize(&y);
     pthread_t th1, th2;
