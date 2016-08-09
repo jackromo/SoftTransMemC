@@ -314,11 +314,11 @@ int transaction_validate_last_write(transaction_t transaction) {
 
 
 /*
- * transaction_add_malloc: Add a record of the transaction using stm_malloc, and
- * returns the address of the malloc'd memory space.
+ * transaction_add_malloc: Malloc memory space of a size, add a record of the
+ * transaction using stm_malloc, and return the address of the malloc'd memory space.
  * This allows the transaction to free the allocated memory on abortion.
  */
-void *transaction_add_malloc(transaction_t transaction, void *pnt) {
+void *transaction_add_malloc(transaction_t transaction, size_t size) {
     //
 }
 
