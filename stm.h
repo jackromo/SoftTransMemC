@@ -206,7 +206,7 @@ int transaction_commit(transaction_t transaction);     // Returns nonzero if com
  * This macro must be called on a separate line.
  */
 #define StartTransaction(TRANS_NAME) do { \
-    transaction_t _Trans(TRANS_NAME) = transaction_new(TRANS_NAME); \
+    transaction_t _Trans(TRANS_NAME) = transaction_new(#TRANS_NAME); \
     jmp_buf _Buf(TRANS_NAME); \
     if(!setjmp(_Buf(TRANS_NAME))) \
         transaction_abort(_Trans(TRANS_NAME)); \
