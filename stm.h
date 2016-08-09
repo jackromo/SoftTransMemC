@@ -93,8 +93,8 @@ int atom_get_version(atom_t atom);
 /*
  * _stm_global_clock: Global clock and its respective mutex.
  */
-int _stm_global_clock = 0;
-pthread_mutex_t _stm_gc_lock;
+extern int _stm_global_clock;
+extern pthread_mutex_t _stm_gc_lock;
 pthread_mutex_init(&_stm_gc_lock, NULL);
 
 
@@ -109,7 +109,7 @@ typedef struct {
 
 read_op_t read_op_new(atom_t *atom, void *dest);
 bool read_op_validate(read_op_t *read_op);
-void *_read_op_read(read_op_t read_op);  // Not responsible for validation.
+void *read_op_read(read_op_t read_op);  // Not responsible for validation.
 
 
 /*
