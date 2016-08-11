@@ -26,7 +26,11 @@ pthread_mutex_t _stm_gc_lock;
  * around it for transactions.
  */
 atom_t atomize(void *address) {
-    //
+    atom_t atom;
+    atom.address = address;
+    atom.vlock.version_number = 0;
+    pthread_mutex_init(&atom.vlock.lock, NULL);
+    return atom;
 }
 
 
@@ -35,7 +39,7 @@ atom_t atomize(void *address) {
  * Will block until atom is locked.
  */
 void atom_lock(atom_t *atom) {
-    //
+    pthread_mutex_lock(&(atom->vlock.lock));
 }
 
 
@@ -47,7 +51,7 @@ void atom_lock(atom_t *atom) {
  * Returns a nonzero value if failed.
  */
 int atom_lock_attempt(atom_t *atom) {
-    //
+    return pthread_mutex_trylock(&(atom->vlock.lock));
 }
 
 
@@ -56,7 +60,7 @@ int atom_lock_attempt(atom_t *atom) {
  * Should only use if atom has been locked in this thread.
  */
 void atom_unlock(atom_t *atom) {
-    //
+    pthread_mutex_unlock(&(atom->vlock.lock));
 }
 
 
@@ -64,7 +68,7 @@ void atom_unlock(atom_t *atom) {
  * atom_get_version: Get the version number of an atom.
  */
 int atom_get_version(atom_t atom) {
-    //
+    return atom.vlock.version_number;
 }
 
 
