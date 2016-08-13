@@ -109,10 +109,11 @@ void stm_init() {
 typedef struct {
     atom_t *atom;
     void *dest;
+    int version_number;
 } read_op_t;
 
 
-read_op_t read_op_new(atom_t *atom, void *dest);
+read_op_t read_op_new(atom_t *atom, void *dest, int version_number);
 bool read_op_validate(read_op_t *read_op);
 void *read_op_read(read_op_t read_op);  // Not responsible for validation.
 
@@ -123,10 +124,11 @@ void *read_op_read(read_op_t read_op);  // Not responsible for validation.
 typedef struct {
     atom_t *atom;
     void *src;    // Pointer to value to write to atom.
+    int version_number;
 } write_op_t;
 
 
-write_op_t write_op_new(atom_t *atom, void *src);
+write_op_t write_op_new(atom_t *atom, void *src, int version_number);
 bool write_op_validate(write_op_t *write_op);
 void write_op_write(write_op_t write_op);  // Not responsible for validation.
 

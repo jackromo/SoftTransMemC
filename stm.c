@@ -78,8 +78,12 @@ int atom_get_version(atom_t atom) {
 /*
  * read_op_new: Creates a read operation.
  */
-read_op_t read_op_new(atom_t *atom, void *dest) {
-    //
+read_op_t read_op_new(atom_t *atom, void *dest, int version_number) {
+    read_op_t read_op;
+    read_op.atom = atom;
+    read_op.dest = dest;
+    read_op.version_number = version_number;
+    return read_op;
 }
 
 
@@ -88,7 +92,14 @@ read_op_t read_op_new(atom_t *atom, void *dest) {
  * Returns True if so, False otherwise.
  */
 bool read_op_validate(read_op_t *read_op) {
-    //
+    // Valid if atom version is below transaction version.
+    if(!atom_lock_attempt(read_op->atom)) {
+        bool result = read_op->version_number >= atom_get_version(*(read_op->atom));
+        atom_unlock(read_op->atom);
+        return result;
+    } else {
+        return false;
+    }
 }
 
 
@@ -99,7 +110,7 @@ bool read_op_validate(read_op_t *read_op) {
  * Will not validate the read.
  */
 void *read_op_read(read_op_t read_op) {
-    //
+    read_op.dest = read_op.atom->address;
 }
 
 
@@ -109,7 +120,7 @@ void *read_op_read(read_op_t read_op) {
 /*
  * write_op_new: Creates a new write operation.
  */
-write_op_t write_op_new(atom_t *atom, void *src) {
+write_op_t write_op_new(atom_t *atom, void *src, int version_number) {
     //
 }
 
