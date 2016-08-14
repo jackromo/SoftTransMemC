@@ -28,7 +28,7 @@ void *th_run(void *at) {
     atom_t *atom = (atom_t *) at;
     int y, *z;
     StartTransaction(trans);
-    ReadAtom(*atom, &y, trans);
+    ReadAtom(*atom, &y, int, trans);
     z = stm_malloc(sizeof(int), trans);
     if(y == 0)
         *z = 1;
@@ -43,7 +43,7 @@ void *th_run(void *at) {
 int main() {
     stm_init();
     int y = 0;
-    atom_t atom = atomize(&y);
+    atom_t atom = atomize(&y, sizeof(int));
     pthread_t th1, th2;
     pthread_create(&th1, NULL, th_run, (void *) &atom);
     pthread_create(&th2, NULL, th_run, (void *) &atom);

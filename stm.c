@@ -7,10 +7,13 @@
  */
 
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <glib.h>
+#define __STDC_WANT_LIB_EXT1__ 1
+#include <string.h>
 #include "stm.h"
 
 
@@ -25,10 +28,11 @@ pthread_mutex_t _stm_gc_lock;
  * atomize: Takes an address and produces an atom to wrap
  * around it for transactions.
  */
-atom_t atomize(void *address) {
+atom_t atomize(void *address, size_t size) {
     atom_t atom;
     atom.address = address;
     atom.vlock.version_number = 0;
+    atom.size = size;
     pthread_mutex_init(&atom.vlock.lock, NULL);
     return atom;
 }
@@ -120,8 +124,17 @@ void *read_op_read(read_op_t read_op) {
 /*
  * write_op_new: Creates a new write operation.
  */
-write_op_t write_op_new(atom_t *atom, void *src, int version_number) {
-    //
+write_op_t write_op_new(atom_t *atom, void *src, int version_number, size_t src_size) {
+    write_op_t write_op;
+    write_op.atom = atom;
+    write_op.src = src;
+    write_op.version_number = version_number;
+    write_op.src_size = src_size;
+    if(src_size != atom->size) {
+        printf("Error: Invalid write operation between conflicting types");
+        exit(EXIT_FAILURE);
+    }
+    return write_op;
 }
 
 
@@ -130,7 +143,14 @@ write_op_t write_op_new(atom_t *atom, void *src, int version_number) {
  * Returns True if so, False otherwise.
  */
 bool write_op_validate(write_op_t *write_op) {
-    //
+    // Valid if atom version is below transaction version.
+    if(!atom_lock_attempt(write_op->atom)) {
+        bool result = write_op->version_number >= atom_get_version(*(write_op->atom));
+        atom_unlock(write_op->atom);
+        return result;
+    } else {
+        return false;
+    }
 }
 
 
@@ -140,7 +160,7 @@ bool write_op_validate(write_op_t *write_op) {
  * Does not validate the write operation.
  */
 void write_op_write(write_op_t write_op) {
-    //
+    memcpy_s(write_op.atom->address, write_op.atom->size, write_op.src, write_op.src_size);
 }
 
 
@@ -369,4 +389,22 @@ void transaction_abort(transaction_t transaction) {
 int transaction_commit(transaction_t transaction) {
     //
 }
+
+
+// Utility functions
+
+
+void stm_init() {
+    pthread_mutex_init(&_stm_gc_lock, NULL);
+}
+
+
+int stm_get_clock() {
+    pthread_mutex_lock(&_stm_gc_lock);
+    int result = _stm_global_clock;
+    _stm_global_clock++;
+    pthread_mutex_unlock(&_stm_gc_lock);
+    return result;
+}
+
 

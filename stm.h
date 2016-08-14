@@ -75,15 +75,16 @@ typedef struct {
 
 /*
  * atom_t: A single atomic address that will be written to and read
- * by transactions. Holds an address and a vlock.
+ * by transactions. Holds an address, a vlock and the size of the address memory space.
  */
 typedef struct {
     void *address;
     vlock_t vlock;
+    size_t size;
 } atom_t;
 
 
-atom_t atomize(void *address);
+atom_t atomize(void *address, size_t size);
 void atom_lock(atom_t *atom);
 int atom_lock_attempt(atom_t *atom);
 void atom_unlock(atom_t *atom);
@@ -98,9 +99,8 @@ extern pthread_mutex_t _stm_gc_lock;
 
 
 // This function must be called at the start of the program.
-void stm_init() {
-    pthread_mutex_init(&_stm_gc_lock, NULL);
-}
+void stm_init();
+int stm_get_clock();
 
 
 /*
@@ -125,10 +125,11 @@ typedef struct {
     atom_t *atom;
     void *src;    // Pointer to value to write to atom.
     int version_number;
+    size_t src_size;  // Size of value at src.
 } write_op_t;
 
 
-write_op_t write_op_new(atom_t *atom, void *src, int version_number);
+write_op_t write_op_new(atom_t *atom, void *src, int version_number, size_t src_size);
 bool write_op_validate(write_op_t *write_op);
 void write_op_write(write_op_t write_op);  // Not responsible for validation.
 
@@ -184,6 +185,7 @@ typedef struct {
 
 transaction_t transaction_new(char *name);
 void transaction_add_read(transaction_t transaction, read_op_t read_op);
+void *transaction_get_read(transaction_t transaction, atom_t *atom);
 int transaction_validate_last_read(transaction_t transaction);  // Returns nonzero if invalid
 void transaction_add_write(transaction_t transaction, write_op_t write_op);
 int transaction_validate_last_write(transaction_t transaction);  // Returns nonzero if invalid
@@ -240,10 +242,11 @@ int transaction_commit(transaction_t transaction);     // Returns nonzero if com
  * Must be called on a separate line. Should be used with caution if called in a separate function,
  * as it uses a longjmp() to abort if need be.
  */
-#define ReadAtom(atom, dest, TRANS_NAME) do { \
-    transaction_add_read(_Trans(TRANS_NAME), read_op_new(atom, dest)); \
+#define ReadAtom(atom, dest, dest_type, TRANS_NAME) do { \
+    transaction_add_read(_Trans(TRANS_NAME), read_op_new(atom, (void *) dest, stm_get_clock())); \
     if(transaction_validate_last_read(_Trans(TRANS_NAME))) \
         _Abort(TRANS_NAME); \
+    *(dest) = * (dest_type *) transaction_get_read(_Trans(TRANS_NAME), &(atom));\
     } while(0)
 
 
@@ -253,8 +256,8 @@ int transaction_commit(transaction_t transaction);     // Returns nonzero if com
  * Must be called on a separate line. Should be used with caution if called in a separate function,
  * as it uses a longjmp() to abort if need be.
  */
-#define WriteAtom(atom, src, TRANS_NAME) do { \
-    transaction_add_write(_Trans(TRANS_NAME), write_op_new(atom, src)); \
+#define WriteAtom(atom, src, src_type, TRANS_NAME) do { \
+    transaction_add_write(_Trans(TRANS_NAME), write_op_new(atom, src, stm_get_clock(), sizeof(src_type))); \
     if(transaction_validate_last_write(_Trans(TRANS_NAME))) \
         _Abort(TRANS_NAME); \
     } while(0)
