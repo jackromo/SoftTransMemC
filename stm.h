@@ -148,7 +148,7 @@ typedef struct {
 
 
 readset_t new_readset();
-void readset_append(readset_t readset, read_op_t read_op);
+void readset_append(readset_t readset, read_op_t *read_op);
 bool readset_validate_all(readset_t readset);  // To be used just before commit.
 void readset_free_ops(readset_t readset);
 

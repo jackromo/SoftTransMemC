@@ -169,9 +169,12 @@ void write_op_write(write_op_t write_op) {
 
 /*
  * new_readset: Creates an empty read set.
+ *
+ * No initialization needed currently, but this method is kept in case needed later.
  */
 readset_t new_readset() {
-    //
+    readset_t readset;
+    return readset;
 }
 
 
@@ -180,8 +183,8 @@ readset_t new_readset() {
  *
  * Will not validate this read.
  */
-void readset_append(readset_t readset, read_op_t read_op) {
-    //
+void readset_append(readset_t readset, read_op_t *read_op) {
+    readset.read_ops = g_slist_prepend(readset.read_ops, (gpointer) read_op);
 }
 
 
@@ -192,7 +195,9 @@ void readset_append(readset_t readset, read_op_t read_op) {
  * Is to be used right after appending a read operation.
  */
 bool readset_validate_last_read(readset_t readset) {
-    //
+    if(readset.num_read_ops == 0) {
+        return true;
+    return read_op_validate((read_op_t *) readset.read_ops->data);
 }
 
 
@@ -203,7 +208,12 @@ bool readset_validate_last_read(readset_t readset) {
  * Is to be used at commit of transaction.
  */
 bool readset_validate_all(readset_t readset) {
-    //
+    GSList *current = readset.read_ops;
+    for(; current != NULL; current = current->next) {
+        if(!read_op_validate((read_op_t *) current->data))
+            return false;
+    }
+    return true;
 }
 
 
@@ -212,7 +222,7 @@ bool readset_validate_all(readset_t readset) {
  * The read set can then be freed in the standard free(set) fashion.
  */
 void readset_free_ops(readset_t readset) {
-    //
+    g_slist_free(readset.read_ops);
 }
 
 
