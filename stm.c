@@ -141,16 +141,12 @@ write_op_t write_op_new(atom_t *atom, void *src, int version_number, size_t src_
 /*
  * write_op_validate: Checks if a write operation is still valid.
  * Returns True if so, False otherwise.
+ *
+ * Unlike read_op_validate, does not lock or unlock atom being validated.
  */
 bool write_op_validate(write_op_t *write_op) {
     // Valid if atom version is below transaction version.
-    if(!atom_lock_attempt(write_op->atom)) {
-        bool result = write_op->version_number >= atom_get_version(*(write_op->atom));
-        atom_unlock(write_op->atom);
-        return result;
-    } else {
-        return false;
-    }
+    bool result = write_op->version_number >= atom_get_version(*(write_op->atom));
 }
 
 
