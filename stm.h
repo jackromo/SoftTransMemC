@@ -163,7 +163,7 @@ typedef struct {
 
 
 writeset_t new_writeset();
-void writeset_append(writeset_t writeset, write_op_t write_op);
+void writeset_append(writeset_t writeset, write_op_t *write_op);
 int writeset_lock(writeset_t *writeset);           // To be used just before commit.
 void writeset_unlock(writeset_t *writeset);         // ^
 bool writeset_validate_all(writeset_t writeset);    // ^^

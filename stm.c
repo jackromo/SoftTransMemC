@@ -227,9 +227,12 @@ void readset_free_ops(readset_t readset) {
 
 /*
  * new_writeset: Create a new empty write set.
+ *
+ * No initialization currently needed; this method is kept in case this changes.
  */
 writeset_t new_writeset() {
-    //
+    writeset_t writeset;
+    return writeset;
 }
 
 
@@ -238,8 +241,8 @@ writeset_t new_writeset() {
  *
  * Does not validate this operation.
  */
-void writeset_append(writeset_t writeset, write_op_t write_op) {
-    //
+void writeset_append(writeset_t writeset, write_op_t *write_op) {
+    writeset.write_ops = g_slist_prepend(writeset.write_ops, (gpointer) write_op);
 }
 
 
@@ -250,7 +253,15 @@ void writeset_append(writeset_t writeset, write_op_t write_op) {
  * Is to be used right after appending a write operation.
  */
 bool writeset_validate_last_write(writeset_t writeset) {
-    //
+    // Valid if atom version is below transaction version.
+    write_op_t *write_op = writeset.write_ops->data;
+    if(!atom_lock_attempt(write_op->atom)) {
+        bool result = write_op_validate(write_op);
+        atom_unlock(write_op->atom);
+        return result;
+    } else {
+        return false;
+    }
 }
 
 
@@ -260,16 +271,22 @@ bool writeset_validate_last_write(writeset_t writeset) {
  *
  * To be used at commit of transaction.
  */
-int writeset_lock(writeset_t *writeset) {
-    //
+int writeset_lock(writeset_t writeset) {
+    for(GSList *current = writeset.write_ops; current != NULL; current = current->next) {
+        write_op_t *cur_op = (write_op_t *) current->data;
+        int result = atom_lock_attempt(cur_op->atom);
+        if(result) return result;
+    }
+    return 0;
 }
 
 
 /*
  * writeset_unlock: Unlocks all atoms to be written to by set's write operations.
  */
-void writeset_unlock(writeset_t *writeset) {
-    //
+void writeset_unlock(writeset_t writeset) {
+    for(GSList *current = writeset.write_ops; current != NULL; current = current->next)
+        atom_unlock(((write_op_t *) current->data)->atom);
 }
 
 
@@ -279,7 +296,12 @@ void writeset_unlock(writeset_t *writeset) {
  * Assumes writeset is already locked. To be used at commit.
  */
 bool writeset_validate_all(writeset_t writeset) {
-    //
+    GSList *current_node = writeset.write_ops;
+    for(; current_node != NULL; current_node = current_node->next) {
+        if(!write_op_validate((write_op_t *) current_node->data))
+            return false;
+    }
+    return true;
 }
 
 
@@ -289,7 +311,10 @@ bool writeset_validate_all(writeset_t writeset) {
  * Assumes write set has already been locked.
  */
 void writeset_commit(writeset_t writeset) {
-    //
+    GSList *current_node = writeset.write_ops;
+    for(; current_node != NULL; current_node = current_node->next) {
+        write_op_write(*((write_op_t *) current_node->data));
+    }
 }
 
 
@@ -299,7 +324,10 @@ void writeset_commit(writeset_t writeset) {
  * After this, the write set itself can be freed with free(set) if need be.
  */
 void writeset_free_ops(writeset_t writeset) {
-    //
+    GSList *current_node = writeset.write_ops;
+    for(; current_node != NULL; current_node = current_node->next) {
+        write_op_write(*((write_op_t *) current_node->data));
+    }
 }
 
 
