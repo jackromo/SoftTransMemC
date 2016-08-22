@@ -191,7 +191,7 @@ void readset_append(readset_t readset, read_op_t *read_op) {
  * Is to be used right after appending a read operation.
  */
 bool readset_validate_last_read(readset_t readset) {
-    if(readset.num_read_ops == 0) {
+    if(readset.num_read_ops == 0)
         return true;
     return read_op_validate((read_op_t *) readset.read_ops->data);
 }
