@@ -149,7 +149,8 @@ typedef struct {
 
 readset_t new_readset();
 void readset_append(readset_t readset, read_op_t *read_op);
-bool readset_validate_all(readset_t readset);  // To be used just before commit.
+bool readset_validate_last_read(readset_t readset);
+bool readset_validate_all(readset_t readset);
 void readset_free_ops(readset_t readset);
 
 
@@ -167,6 +168,7 @@ void writeset_append(writeset_t writeset, write_op_t *write_op);
 int writeset_lock(writeset_t writeset);           // To be used just before commit.
 void writeset_unlock(writeset_t writeset);         // ^
 bool writeset_validate_all(writeset_t writeset);    // ^^
+bool writeset_validate_last_write(writeset_t writeset);
 void writeset_commit(writeset_t writeset);
 void writeset_free_ops(writeset_t writeset);
 
@@ -184,11 +186,11 @@ typedef struct {
 
 
 transaction_t transaction_new(char *name);
-void transaction_add_read(transaction_t transaction, read_op_t read_op);
+void transaction_add_read(transaction_t transaction, read_op_t *read_op);
 void *transaction_get_read(transaction_t transaction, atom_t *atom);
-int transaction_validate_last_read(transaction_t transaction);  // Returns nonzero if invalid
-void transaction_add_write(transaction_t transaction, write_op_t write_op);
-int transaction_validate_last_write(transaction_t transaction);  // Returns nonzero if invalid
+bool transaction_validate_last_read(transaction_t transaction);  // Returns nonzero if invalid
+void transaction_add_write(transaction_t transaction, write_op_t *write_op);
+bool transaction_validate_last_write(transaction_t transaction);  // Returns nonzero if invalid
 void *transaction_add_malloc(transaction_t transaction, size_t size);
 void transaction_add_free(transaction_t transaction, void *pnt);
 void transaction_abort(transaction_t transaction);
@@ -244,7 +246,7 @@ int transaction_commit(transaction_t transaction);     // Returns nonzero if com
  */
 #define ReadAtom(atom, dest, dest_type, TRANS_NAME) do { \
     transaction_add_read(_Trans(TRANS_NAME), read_op_new(atom, (void *) dest, stm_get_clock())); \
-    if(transaction_validate_last_read(_Trans(TRANS_NAME))) \
+    if(!transaction_validate_last_read(_Trans(TRANS_NAME))) \
         _Abort(TRANS_NAME); \
     *(dest) = * (dest_type *) transaction_get_read(_Trans(TRANS_NAME), &(atom));\
     } while(0)
@@ -258,7 +260,7 @@ int transaction_commit(transaction_t transaction);     // Returns nonzero if com
  */
 #define WriteAtom(atom, src, src_type, TRANS_NAME) do { \
     transaction_add_write(_Trans(TRANS_NAME), write_op_new(atom, src, stm_get_clock(), sizeof(src_type))); \
-    if(transaction_validate_last_write(_Trans(TRANS_NAME))) \
+    if(!transaction_validate_last_write(_Trans(TRANS_NAME))) \
         _Abort(TRANS_NAME); \
     } while(0)
 

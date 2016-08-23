@@ -338,7 +338,12 @@ void writeset_free_ops(writeset_t writeset) {
  * transaction_new: Create a new empty transaction.
  */
 transaction_t transaction_new(char *name) {
-    //
+    transaction_t trans;
+    trans.readset = new_readset();
+    trans.writeset = new_writeset();
+    trans.buf_name = name;
+    trans.version_number = stm_get_clock();
+    return trans;
 }
 
 
@@ -347,18 +352,18 @@ transaction_t transaction_new(char *name) {
  *
  * Does not validate this read.
  */
-void transaction_add_read(transaction_t transaction, read_op_t read_op) {
-    //
+void transaction_add_read(transaction_t transaction, read_op_t *read_op) {
+    readset_append(transaction.readset, read_op);
 }
 
 
 /*
  * transaction_validate_last_read: Validates the most recent read operation in the transaction.
  *
- * Returns nonzero values if invalid.
+ * Returns false if invalid.
  */
-int transaction_validate_last_read(transaction_t transaction) {
-    //
+bool transaction_validate_last_read(transaction_t transaction) {
+    return readset_validate_last_read(transaction.readset);
 }
 
 
@@ -367,18 +372,18 @@ int transaction_validate_last_read(transaction_t transaction) {
  *
  * Does not validate this write.
  */
-void transaction_add_write(transaction_t transaction, write_op_t write_op) {
-    //
+void transaction_add_write(transaction_t transaction, write_op_t *write_op) {
+    writeset_append(transaction.writeset, write_op);
 }
 
 
 /*
  * transaction_validate_last_write: Validates the most recent write operation in the transaction.
  *
- * Returns nonzero values if invalid.
+ * Returns false if invalid.
  */
-int transaction_validate_last_write(transaction_t transaction) {
-    //
+bool transaction_validate_last_write(transaction_t transaction) {
+    return writeset_validate_last_write(transaction.writeset);
 }
 
 
